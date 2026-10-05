@@ -1,8 +1,8 @@
-# @varyx-io/identity-realm-config
+# @varyx-io/realm-config
 
 The Identity Platform's **RealmConfig** contract: the TypeScript types and
 validation for what an ID Product supplies to instantiate an Identity Realm
-(identity/docs ADRs 0015, 0018, 0020).
+(identity/docs ADRs 0015, 0018, 0020, 0023).
 
 - `RealmConfig` and its parts: the type an ID Product writes its realm in
   (`satisfies RealmConfig`).
@@ -13,21 +13,23 @@ validation for what an ID Product supplies to instantiate an Identity Realm
   after a strict structural check. The platform uses it where an ID Product
   supplies its realm (`REALM_CONFIG_FILE`).
 
-This package is **only the contract**. It contains no realm (no product's
-values) and no deployable infrastructure. The platform's deployable release
-(`IdentityRealm`, ADR 0017) is later work and will depend on this.
+This package is **only the contract**: no realm (no product's values) and no
+deployable infrastructure. It is independently consumable: consumers don't
+need the rest of the Identity Platform (ADR 0023).
 
-## Releasing
+## Building
 
-The source of truth is `src/index.ts` in this directory. identity/auth and
-identity/api carry byte-identical mirrors, pinned by SHA-256 in their
-`infra/test/realm-config.test.ts`: update the pins there in the same change.
+```sh
+npm ci
+npm run build   # dist/: CommonJS + .d.ts
+```
 
-1. Bump `version` in `package.json`.
-2. Merge to `main`.
-3. Tag the merge commit `realm-config-v<version>` and push the tag.
+Its behaviour is tested with the realm inputs in this repository's
+`realm/` (see `provider/infra/test/realm-config.test.ts`).
 
-CI (`publish:realm-config`) builds the package and publishes it to this
-project's GitLab package registry with the job's own token. Consumers
-install it with read access to that registry. In CI that's their job token,
-allowed by this project's job-token allowlist.
+## Distribution
+
+Not yet decided (ADR 0023: registry, access, versioning). Its predecessor,
+`@varyx-io/identity-realm-config` 0.1.0, was published to GitLab's package
+registry from GitLab identity/web; VarYX ID still pins that artifact until
+distribution is decided. The contract source is unchanged.

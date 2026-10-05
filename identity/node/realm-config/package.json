@@ -1,5 +1,5 @@
 {
-  "name": "@varyx-io/identity-realm-config",
+  "name": "@varyx-io/realm-config",
   "version": "0.1.0",
   "description": "The Identity Platform's RealmConfig contract: types and validation for what an ID Product supplies to instantiate an Identity Realm.",
   "license": "UNLICENSED",
@@ -14,7 +14,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@gitlab.com/varyx-io/identity/web.git",
-    "directory": "packages/realm-config"
+    "url": "git+ssh://git@github.com/varyx-io/identity.git",
+    "directory": "packages/node/realm-config"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
   }
 }
