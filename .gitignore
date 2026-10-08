@@ -1,0 +1,6 @@
+.DS_Store
+.idea/
+_scratch/
+node_modules/
+dist/
+*.tgz

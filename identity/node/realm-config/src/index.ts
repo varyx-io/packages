@@ -1,12 +1,11 @@
 /**
  * RealmConfig: what an ID Product supplies to instantiate an Identity Realm
- * from the Identity Platform (identity/docs ADRs 0015, 0018, 0020, 0023).
+ * from the Identity Platform (identity/docs ADRs 0015, 0018, 0020, 0023, 0024).
  *
- * The contract is owned by the Identity Platform. This directory
- * (packages/node/realm-config) is its only source; it builds the
- * independently consumable package `@varyx-io/realm-config` (ADR 0023).
- * ID Products depend on that package, never on platform source. Its
- * distribution (registry, access) is decided separately.
+ * The contract is owned by the Identity Platform. Its only source is this
+ * directory (identity/node/realm-config of github.com/varyx-io/packages),
+ * published to npm as `@varyx-io/realm-config`. ID Products, and the
+ * platform itself, depend on that package, never on platform source.
  *
  * Deliberately small: only what today's implementation consumes, plus the
  * realm's permanent public identity triple (issuer, authentication origin,

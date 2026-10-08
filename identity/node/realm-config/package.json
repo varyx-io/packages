@@ -10,14 +10,21 @@
     "src/"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/varyx-io/identity.git",
-    "directory": "packages/node/realm-config"
+    "url": "git+https://github.com/varyx-io/packages.git",
+    "directory": "identity/node/realm-config"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
   }
 }
