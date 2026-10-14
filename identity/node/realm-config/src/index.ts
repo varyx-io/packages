@@ -18,6 +18,32 @@ export interface RealmBranding {
   readonly name: string;
   /** Page-title suffix and site name: "<page> · <siteTitle>". */
   readonly siteTitle: string;
+  /** The realm's own look. Absent: the Provider's default (VarYX) presentation. */
+  readonly appearance?: RealmAppearance;
+}
+
+/**
+ * How the Provider's pages look for this realm. Deliberately few values, not a
+ * theme: the page background, and one accent colour. With an appearance, the
+ * Provider shows `branding.name` as the realm's wordmark wherever it would
+ * show the VarYX one.
+ */
+export interface RealmAppearance {
+  /**
+   * The full-page background of the signed-out pages: an https URL of an image
+   * the realm's owner publishes (the Provider doesn't host realm artwork).
+   */
+  readonly backgroundImage: string;
+  /** Shown behind the image, and instead of it while it loads or if it can't. `#rrggbb`. */
+  readonly backgroundColor: string;
+  /** CSS `background-position`: one or two of left, center, right, top, bottom or N%. Default "center". */
+  readonly backgroundPosition?: string;
+  /** CSS `background-size`. Default "cover": fill the page, cropping rather than distorting. */
+  readonly backgroundSize?: "cover" | "contain";
+  /** Opacity, 0 to 0.9, of a black layer over the image, for legibility. Default 0. */
+  readonly overlayOpacity?: number;
+  /** Primary buttons and focus. `#rrggbb`. Default: the Provider's own. The Provider picks legible text for it. */
+  readonly accentColor?: string;
 }
 
 /** An OAuth application: the consent-page identity of a relying party (ADR 0014). Validated fully by the Provider. */
@@ -157,6 +183,39 @@ function checkHostname(name: string, value: string, problems: string[]): void {
   if (!HOSTNAME.test(value)) problems.push(`${name} "${value}" is not a lower-case DNS hostname`);
 }
 
+const HEX_COLOR = /^#[0-9a-f]{6}$/;
+const POSITION_PART = "(?:left|center|right|top|bottom|(?:100|[1-9]?[0-9])%)";
+const BACKGROUND_POSITION = new RegExp(`^${POSITION_PART}(?: ${POSITION_PART})?$`);
+
+function checkAppearance(appearance: RealmAppearance, problems: string[]): void {
+  const { backgroundImage, backgroundColor, backgroundPosition, backgroundSize, overlayOpacity, accentColor } = appearance;
+  let image: URL | undefined;
+  try {
+    image = new URL(backgroundImage);
+  } catch {
+    problems.push(`branding.appearance.backgroundImage "${backgroundImage}" is not an absolute URL`);
+  }
+  if (image) {
+    if (image.protocol !== "https:") problems.push(`branding.appearance.backgroundImage "${backgroundImage}" must use https`);
+    if (image.username || image.password) problems.push("branding.appearance.backgroundImage must not contain userinfo");
+    // Canonical, so the Provider can place it in CSS as-is (a URL's serialization escapes quotes and whitespace).
+    if (image.href !== backgroundImage) problems.push(`branding.appearance.backgroundImage "${backgroundImage}" must be written canonically, i.e. "${image.href}"`);
+  }
+  if (!HEX_COLOR.test(backgroundColor)) problems.push(`branding.appearance.backgroundColor "${backgroundColor}" must be a lower-case #rrggbb colour`);
+  if (accentColor !== undefined && !HEX_COLOR.test(accentColor)) {
+    problems.push(`branding.appearance.accentColor "${accentColor}" must be a lower-case #rrggbb colour`);
+  }
+  if (backgroundPosition !== undefined && !BACKGROUND_POSITION.test(backgroundPosition)) {
+    problems.push(`branding.appearance.backgroundPosition "${backgroundPosition}" must be one or two of left, center, right, top, bottom or N%`);
+  }
+  if (backgroundSize !== undefined && backgroundSize !== "cover" && backgroundSize !== "contain") {
+    problems.push(`branding.appearance.backgroundSize "${backgroundSize}" must be "cover" or "contain"`);
+  }
+  if (overlayOpacity !== undefined && !(typeof overlayOpacity === "number" && overlayOpacity >= 0 && overlayOpacity <= 0.9)) {
+    problems.push(`branding.appearance.overlayOpacity ${overlayOpacity} must be a number from 0 to 0.9`);
+  }
+}
+
 /**
  * Validates a RealmConfig for internal consistency and returns it unchanged,
  * or throws one error naming every problem. Run at synth (before anything
@@ -206,6 +265,7 @@ export function validateRealmConfig<T extends RealmConfig>(realm: T): T {
 
   if (!branding.name.trim()) problems.push("branding.name is required");
   if (!branding.siteTitle.trim()) problems.push("branding.siteTitle is required");
+  if (branding.appearance) checkAppearance(branding.appearance, problems);
 
   if (!/^\d{12}$/.test(aws.account)) problems.push(`aws.account "${aws.account}" must be a 12-digit AWS account ID`);
   if (!/^[a-z]{2}(-gov)?-[a-z]+-\d$/.test(aws.region)) problems.push(`aws.region "${aws.region}" is not an AWS region`);
@@ -270,6 +330,7 @@ export function validateRealmConfig<T extends RealmConfig>(realm: T): T {
 
 type Shape =
   | "string"
+  | "number"
   | "true"
   | { readonly kind: "array"; readonly of: Shape }
   | { readonly kind: "enum"; readonly values: readonly string[] }
@@ -283,7 +344,24 @@ const oneOf = (...values: string[]): Shape => ({ kind: "enum", values });
 const REALM_SHAPE: Shape = object({
   product: object({ id: str, displayName: str }),
   identity: object({ issuer: str, authenticationOrigin: str, passkeyRpId: str, developmentOrigins: array(str) }),
-  branding: object({ name: str, siteTitle: str }),
+  branding: object(
+    {
+      name: str,
+      siteTitle: str,
+      appearance: object(
+        {
+          backgroundImage: str,
+          backgroundColor: str,
+          backgroundPosition: str,
+          backgroundSize: oneOf("cover", "contain"),
+          overlayOpacity: "number",
+          accentColor: str,
+        },
+        ["backgroundPosition", "backgroundSize", "overlayOpacity", "accentColor"]
+      ),
+    },
+    ["appearance"]
+  ),
   aws: object({ account: str, region: str }),
   dns: object({ zoneName: str }),
   hostnames: object({ api: str }),
@@ -324,6 +402,8 @@ const REALM_SHAPE: Shape = object({
 function checkShape(value: unknown, shape: Shape, path: string, problems: string[]): void {
   if (shape === "string") {
     if (typeof value !== "string") problems.push(`${path} must be a string`);
+  } else if (shape === "number") {
+    if (typeof value !== "number" || !Number.isFinite(value)) problems.push(`${path} must be a number`);
   } else if (shape === "true") {
     if (value !== true) problems.push(`${path} must be true`);
   } else if (shape.kind === "enum") {
