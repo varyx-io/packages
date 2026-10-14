@@ -76,7 +76,9 @@ jobs:
           fi
       - run: npm ci
       - run: npm run build
-      - run: npm publish
+      # Verbose: when npm's OIDC token exchange fails, npm falls back to a token
+      # and fails with ENEEDAUTH, and says why only at verbose level ("oidc ...").
+      - run: npm publish --loglevel verbose
         env:
           # Only for the package's first publish, before npm can trust this
           # workflow (npm trusted publishers can't be set on an unpublished
