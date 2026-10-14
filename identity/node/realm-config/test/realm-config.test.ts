@@ -90,6 +90,63 @@ describe("validateRealmConfig", () => {
   });
 });
 
+/** A complete appearance, on example.test (RFC 2606): never fetched. */
+const APPEARANCE = {
+  backgroundImage: "https://www.example.test/images/cover.jpg",
+  backgroundColor: "#0c1016",
+  backgroundPosition: "50% 30%",
+  backgroundSize: "cover",
+  overlayOpacity: 0.6,
+  accentColor: "#c89a4a",
+} as const;
+
+describe("branding.appearance", () => {
+  it("is optional: a realm without one has the Provider's default presentation", () => {
+    expect(FIXTURE_REALM.branding).not.toHaveProperty("appearance");
+    expect(validateRealmConfig(realm())).toBeTruthy();
+  });
+
+  it("accepts a complete appearance, and one with only the required image and colour", () => {
+    expect(validateRealmConfig(realm((r) => (r.branding.appearance = { ...APPEARANCE })))).toBeTruthy();
+    expect(validateRealmConfig(realm((r) => (r.branding.appearance = { backgroundImage: APPEARANCE.backgroundImage, backgroundColor: "#000000" })))).toBeTruthy();
+    for (const backgroundPosition of ["center", "left top", "0% 100%", "right 25%"]) {
+      expect(validateRealmConfig(realm((r) => (r.branding.appearance = { ...APPEARANCE, backgroundPosition })))).toBeTruthy();
+    }
+  });
+
+  it.each([
+    ["an http image", { backgroundImage: "http://www.example.test/cover.jpg" }, /must use https/],
+    ["a relative image", { backgroundImage: "/cover.jpg" }, /is not an absolute URL/],
+    ["a non-canonical image URL", { backgroundImage: 'https://www.example.test/a b".jpg' }, /must be written canonically/],
+    ["an image with userinfo", { backgroundImage: "https://u:p@www.example.test/cover.jpg" }, /must not contain userinfo/],
+    ["a named colour", { backgroundColor: "black" }, /backgroundColor "black" must be/],
+    ["an upper-case colour", { accentColor: "#C89A4A" }, /accentColor "#C89A4A" must be/],
+    ["CSS in the position", { backgroundPosition: "center; color: red" }, /backgroundPosition .* must be/],
+    ["three position values", { backgroundPosition: "left top 10%" }, /backgroundPosition .* must be/],
+    ["an unknown size", { backgroundSize: "auto" }, /backgroundSize "auto" must be/],
+    ["an overlay that hides the image", { overlayOpacity: 1 }, /overlayOpacity 1 must be/],
+    ["a negative overlay", { overlayOpacity: -0.1 }, /overlayOpacity -0.1 must be/],
+  ])("rejects %s", (_label, change, expected) => {
+    expect(invalid(realm((r) => (r.branding.appearance = { ...APPEARANCE, ...(change as object) } as never)))).toMatch(expected);
+  });
+
+  it("is checked structurally when supplied as JSON", () => {
+    const data = JSON.parse(JSON.stringify(FIXTURE_REALM));
+    data.branding.appearance = { ...APPEARANCE };
+    expect(JSON.stringify(parseRealmConfig(JSON.parse(JSON.stringify(data))))).toBe(JSON.stringify(data));
+    for (const [mutate, expected] of [
+      [(a: any) => (a.overlayOpacity = "0.6"), /overlayOpacity must be a number/],
+      [(a: any) => (a.logo = "https://www.example.test/logo.png"), /appearance.logo is not a RealmConfig field/],
+      [(a: any) => delete a.backgroundColor, /appearance.backgroundColor is required/],
+      [(a: any) => (a.backgroundSize = "fill"), /backgroundSize must be one of cover, contain/],
+    ] as const) {
+      const copy = JSON.parse(JSON.stringify(data));
+      mutate(copy.branding.appearance);
+      expect(problems(() => parseRealmConfig(copy))).toMatch(expected);
+    }
+  });
+});
+
 describe("parseRealmConfig (a realm supplied as JSON)", () => {
   it("accepts a valid realm and preserves its field order", () => {
     const json = JSON.stringify(FIXTURE_REALM);
